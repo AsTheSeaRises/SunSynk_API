@@ -10,4 +10,5 @@ SunSynk account created on https://sunsynk.net/ site, and an SunSynk inverter th
 3) Edit the python file to include your email and password at line 15 and 16. This is the same username/password used to access the sunsynk.net website when retrieving your inverter details from the mobile app.
 
 my_user_email = ('<ENTER YOUR EMAIL ADDRESS>')
+  
 my_user_password = ('<ENTER YOUR PASSWORD>')
