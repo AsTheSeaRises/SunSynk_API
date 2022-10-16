@@ -11,7 +11,7 @@ SunSynk account created on https://sunsynk.net/ site, and an SunSynk inverter th
 
 The command example would be:
 ```
-python3 Sunsynk_inverter.py <my_username/email> <my_password>
+python3 sunsynk_get_generation.py <my_username/email> <my_password>
 ```
 
 4) The output by default runs both functions which will display the bearer token, the plant id and the real-time power generation.
