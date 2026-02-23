@@ -12,7 +12,7 @@ import requests
 
 
 DEFAULT_BASE_URL = "https://api.sunsynk.net"
-LOGIN_PATH = "/oauth/token"
+LOGIN_PATH = "/oauth/token/new"
 PLANTS_PATH = "/api/v1/plants?page=1&limit=10&name=&status="
 
 
