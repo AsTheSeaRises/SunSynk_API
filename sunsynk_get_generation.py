@@ -19,7 +19,7 @@ import sys
 import time
 
 import requests
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
 
@@ -29,21 +29,30 @@ LOGIN_PATH = "/oauth/token/new"
 PLANTS_PATH = "/api/v1/plants?page=1&limit=10&name=&status="
 SOURCE = "sunsynk"
 CLIENT_ID = "csp-web"
-SIGN_SECRET = "agreement"
-
-
 def _make_nonce() -> int:
     """Return current time as millisecond integer."""
     return int(time.time() * 1000)
 
 
-def _make_sign(nonce: int) -> str:
-    """Compute MD5 sign from nonce + secret."""
-    raw = f"{nonce}{SIGN_SECRET}"
+def _make_pk_sign(nonce: int, source: str) -> str:
+    """Compute MD5 sign for the public key request.
+
+    Formula: MD5("nonce={nonce}&source={source}POWER_VIEW")
+    """
+    raw = f"nonce={nonce}&source={source}POWER_VIEW"
     return hashlib.md5(raw.encode()).hexdigest()
 
 
-def _fetch_public_key(base_url: str, nonce: int, sign: str) -> bytes:
+def _make_token_sign(nonce: int, source: str, pk_string: str) -> str:
+    """Compute MD5 sign for the token login request.
+
+    Formula: MD5("nonce={nonce}&source={source}{first_10_chars_of_public_key}")
+    """
+    raw = f"nonce={nonce}&source={source}{pk_string[:10]}"
+    return hashlib.md5(raw.encode()).hexdigest()
+
+
+def _fetch_public_key(base_url: str, nonce: int, sign: str) -> tuple[str, bytes]:
     """Fetch the RSA public key from the API.
 
     Args:
@@ -52,7 +61,8 @@ def _fetch_public_key(base_url: str, nonce: int, sign: str) -> bytes:
         sign: MD5 signature.
 
     Returns:
-        PEM-encoded public key bytes.
+        Tuple of (raw_key_string, PEM-encoded public key bytes).
+        The raw string is needed to compute the token sign.
 
     Raises:
         SystemExit: On request failure.
@@ -76,17 +86,15 @@ def _fetch_public_key(base_url: str, nonce: int, sign: str) -> bytes:
 
     try:
         data = response.json()
-        pem = data["data"]
+        raw_key = data["data"]
     except (ValueError, KeyError, TypeError) as e:
         print(f"Error: Unexpected public key response: {e}", file=sys.stderr)
         print(f"Full response: {response.text}", file=sys.stderr)
         sys.exit(1)
 
-    # API returns the key without PEM headers — add them if needed
-    if not pem.strip().startswith("-----"):
-        pem = f"-----BEGIN PUBLIC KEY-----\n{pem}\n-----END PUBLIC KEY-----"
-
-    return pem.encode()
+    # API returns the bare base64 key without PEM headers — wrap it
+    pem = f"-----BEGIN PUBLIC KEY-----\n{raw_key}\n-----END PUBLIC KEY-----"
+    return raw_key, pem.encode()
 
 
 def _encrypt_password(public_key_pem: bytes, plaintext: str) -> str:
@@ -121,14 +129,15 @@ def authenticate(base_url: str, username: str, password: str) -> str:
     Raises:
         SystemExit: On authentication failure.
     """
-    # Use separate nonces for the public key fetch and the login request
+    # Step 1: fetch public key (uses its own nonce + sign)
     pk_nonce = _make_nonce()
-    pk_sign = _make_sign(pk_nonce)
-    public_key_pem = _fetch_public_key(base_url, pk_nonce, pk_sign)
+    pk_sign = _make_pk_sign(pk_nonce, SOURCE)
+    raw_key, public_key_pem = _fetch_public_key(base_url, pk_nonce, pk_sign)
     encrypted_password = _encrypt_password(public_key_pem, password)
 
+    # Step 2: compute login nonce + sign (sign includes first 10 chars of public key)
     login_nonce = _make_nonce()
-    login_sign = _make_sign(login_nonce)
+    login_sign = _make_token_sign(login_nonce, SOURCE, raw_key)
 
     headers = {
         "Content-type": "application/json",
