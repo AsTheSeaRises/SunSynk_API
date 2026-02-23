@@ -57,9 +57,22 @@ def authenticate(base_url: str, username: str, password: str) -> str:
 
     try:
         data = response.json()
+    except ValueError as e:
+        print(f"Error: Could not parse response as JSON: {e}", file=sys.stderr)
+        print(f"Raw response: {response.text}", file=sys.stderr)
+        sys.exit(1)
+
+    if data.get("data") is None:
+        msg = data.get("msg") or data.get("message") or "unknown error"
+        print(f"Error: Authentication rejected by API: {msg}", file=sys.stderr)
+        print(f"Full response: {data}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
         access_token = data["data"]["access_token"]
-    except (ValueError, KeyError) as e:
-        print(f"Error: Unexpected response format: {e}", file=sys.stderr)
+    except KeyError as e:
+        print(f"Error: Unexpected response format, missing key {e}", file=sys.stderr)
+        print(f"Full response: {data}", file=sys.stderr)
         sys.exit(1)
 
     return access_token
