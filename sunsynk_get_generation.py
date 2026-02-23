@@ -24,7 +24,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 
 
 DEFAULT_BASE_URL = "https://api.sunsynk.net"
-PUBLIC_KEY_PATH = "/oauth/anonymous/publicKey"
+PUBLIC_KEY_PATH = "/anonymous/publicKey"
 LOGIN_PATH = "/oauth/token/new"
 PLANTS_PATH = "/api/v1/plants?page=1&limit=10&name=&status="
 SOURCE = "sunsynk"
