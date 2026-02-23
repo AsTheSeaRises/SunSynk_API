@@ -3,12 +3,13 @@
 Authenticates against the SunSynk API and retrieves current power
 generation data for all registered plants.
 
-Auth flow (as of 2026):
+Auth flow (as of Feb 2026):
   1. Generate a millisecond nonce timestamp
-  2. Compute sign = MD5(nonce + SIGN_SECRET)
+  2. Compute publicKey sign = MD5("nonce={nonce}&source={source}POWER_VIEW")
   3. Fetch RSA public key from /anonymous/publicKey
-  4. RSA-encrypt the plaintext password with that key
-  5. POST encrypted credentials to /oauth/token/new
+  4. RSA-encrypt the plaintext password (PKCS1v15) with that key
+  5. Compute token sign = MD5("nonce={nonce}&source={source}{pk[:10]}")
+  6. POST encrypted credentials + nonce + sign to /oauth/token/new
 """
 
 import argparse
@@ -29,6 +30,8 @@ LOGIN_PATH = "/oauth/token/new"
 PLANTS_PATH = "/api/v1/plants?page=1&limit=10&name=&status="
 SOURCE = "sunsynk"
 CLIENT_ID = "csp-web"
+
+
 def _make_nonce() -> int:
     """Return current time as millisecond integer."""
     return int(time.time() * 1000)
