@@ -121,11 +121,14 @@ def authenticate(base_url: str, username: str, password: str) -> str:
     Raises:
         SystemExit: On authentication failure.
     """
-    nonce = _make_nonce()
-    sign = _make_sign(nonce)
-
-    public_key_pem = _fetch_public_key(base_url, nonce, sign)
+    # Use separate nonces for the public key fetch and the login request
+    pk_nonce = _make_nonce()
+    pk_sign = _make_sign(pk_nonce)
+    public_key_pem = _fetch_public_key(base_url, pk_nonce, pk_sign)
     encrypted_password = _encrypt_password(public_key_pem, password)
+
+    login_nonce = _make_nonce()
+    login_sign = _make_sign(login_nonce)
 
     headers = {
         "Content-type": "application/json",
@@ -136,8 +139,8 @@ def authenticate(base_url: str, username: str, password: str) -> str:
         "password": encrypted_password,
         "grant_type": "password",
         "client_id": CLIENT_ID,
-        "nonce": nonce,
-        "sign": sign,
+        "nonce": login_nonce,
+        "sign": login_sign,
         "source": SOURCE,
     }
 
